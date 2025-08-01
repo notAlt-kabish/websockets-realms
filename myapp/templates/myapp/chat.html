@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Realm Chat</title>
+</head>
+<body>
+<h2>Realm Chat Room</h2>
+<textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+<input id="chat-message-input" type="text" size="100"><br>
+<button id="chat-message-send">Send</button>
+
+<script>
+    const chatSocket = new WebSocket(
+        'ws://' + window.location.host + '/ws/realm/'
+    );
+
+    chatSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        console.log("Received from server:", data.message);
+        document.querySelector('#chat-log').value += data.message + '\n';
+    };
+
+
+    chatSocket.onclose = function (e) {
+        console.error('Chat socket closed unexpectedly');
+    };
+
+    document.querySelector('#chat-message-send').onclick = function (e) {
+        const messageInputDom = document.querySelector('#chat-message-input');
+        const message = messageInputDom.value;
+        chatSocket.send(JSON.stringify({'message': message}));
+        messageInputDom.value = '';
+    };
+</script>
+</body>
+</html>
