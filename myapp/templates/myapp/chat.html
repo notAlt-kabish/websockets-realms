@@ -1,36 +1,125 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Realm Chat</title>
+    <meta charset="UTF-8">
+    <title>WebSocket Chat</title>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background-color: #1e1e2f;
+            color: #f1f1f1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        #chat-log {
+            flex: 1;
+            background-color: #2a2a3d;
+            border: 1px solid #444;
+            padding: 10px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+        }
+
+        .message {
+            margin-bottom: 8px;
+        }
+
+        .username {
+            color: #69d2e7;
+            font-weight: bold;
+        }
+
+        #chat-message-input {
+            padding: 10px;
+            width: 100%;
+            border: none;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        #chat-message-submit {
+            margin-top: 10px;
+            padding: 10px;
+            width: 100%;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #chat-message-submit:hover {
+            background-color: #45a049;
+        }
+    </style>
 </head>
 <body>
-<h2>Realm Chat Room</h2>
-<textarea id="chat-log" cols="100" rows="20" readonly></textarea>
-<input id="chat-message-input" type="text" size="100"><br>
-<button id="chat-message-send">Send</button>
+    <div id="chat-container">
+        <h2>Welcome to the Realm Chat 💬</h2>
 
-<script>
-    const chatSocket = new WebSocket(
-        'ws://' + window.location.host + '/ws/realm/'
-    );
+        <div id="chat-log"></div>
 
-    chatSocket.onmessage = function (e) {
-        const data = JSON.parse(e.data);
-        console.log("Received from server:", data.message);
-        document.querySelector('#chat-log').value += data.message + '\n';
-    };
+        <input id="chat-message-input" type="text" placeholder="Type your message..." autocomplete="off" />
+        <button id="chat-message-submit">Send</button>
+    </div>
 
+    <script>
+        const chatSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/realm/'
+        );
 
-    chatSocket.onclose = function (e) {
-        console.error('Chat socket closed unexpectedly');
-    };
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const chatLog = document.querySelector('#chat-log');
+            const messageText = data.message;
 
-    document.querySelector('#chat-message-send').onclick = function (e) {
-        const messageInputDom = document.querySelector('#chat-message-input');
-        const message = messageInputDom.value;
-        chatSocket.send(JSON.stringify({'message': message}));
-        messageInputDom.value = '';
-    };
-</script>
+            const splitIndex = messageText.indexOf(":");
+            const username = messageText.slice(0, splitIndex);
+            const messageBody = messageText.slice(splitIndex + 1).trim();
+
+            const messageEl = document.createElement('div');
+            messageEl.classList.add('message');
+
+            messageEl.innerHTML = `<span class="username">${username}</span>: ${messageBody}`;
+
+            chatLog.appendChild(messageEl);
+            chatLog.scrollTop = chatLog.scrollHeight; // auto-scroll
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.key === 'Enter') {
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+            if (message.trim() !== '') {
+                chatSocket.send(JSON.stringify({ 'message': message }));
+                messageInputDom.value = '';
+                messageInputDom.focus();
+            }
+        };
+    </script>
 </body>
 </html>
