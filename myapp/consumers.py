@@ -18,6 +18,7 @@ class RealmConsumer(AsyncWebsocketConsumer):
             print(f" {user.username} connected.")
 
     async def disconnect(self, close_code):
+        # disconect
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
