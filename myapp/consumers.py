@@ -1,5 +1,7 @@
-from channels.generic.websocket import AsyncWebsocketConsumer
 import json
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+from myapp.models import ChatMessage
 
 
 class RealmConsumer(AsyncWebsocketConsumer):
@@ -15,20 +17,34 @@ class RealmConsumer(AsyncWebsocketConsumer):
                 self.channel_name
             )
             await self.accept()
-            print(f" {user.username} connected.")
+            print(f"{user.username} connected.")
+
+            messages = await database_sync_to_async(
+                lambda: list(ChatMessage.objects.select_related('user').order_by('timestamp')[:20])
+            )()
+
+            for msg in messages:
+                await self.send(text_data=json.dumps({
+                    'message': f"{msg.user.username} : {msg.message}"
+                }))
 
     async def disconnect(self, close_code):
-        # disconect
+        # disconnect
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
-        print(f"🔌 {self.scope['user'].username} disconnected.")
+        print(f"{self.scope['user'].username} disconnected.")
 
     async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json['message']
+        data = json.loads(text_data)
+        message = data.get("message", "")
         user = self.scope["user"]
+
+        if message.strip() == "":
+            return
+
+        await self.save_message(user, message)
 
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -45,3 +61,7 @@ class RealmConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'message': message
         }))
+
+    @database_sync_to_async
+    def save_message(self, user, message):
+        return ChatMessage.objects.create(user=user, message=message)
